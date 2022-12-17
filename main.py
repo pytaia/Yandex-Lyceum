@@ -1,29 +1,50 @@
-import pygame
-from random import randrange
+import sys
 
-pygame.init()
-pygame.display.set_caption('Git и желтые окружности')
-screen = pygame.display.set_mode((720, 720))
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidgetItem
+from PyQt5 import uic, QtWidgets
+import sqlite3
 
-width, height = screen.get_width(), screen.get_height()
 
-screen.fill((0, 0, 0))
+class CoffeeWindow(QMainWindow):
+    def __init__(self):
+        super(CoffeeWindow, self).__init__()
+        uic.loadUi('Coffee_window_only_table.ui', self)
+        self.setFixedSize(700, 700)
+        self.setWindowTitle('Много кофе не бывает')
+        self.loading_table()
 
-while True:
-    for ev in pygame.event.get():
-        if ev.type == pygame.QUIT:
-            pygame.quit()
-        if ev.type == pygame.MOUSEBUTTONDOWN:
-            mouse = pygame.mouse.get_pos()
-            if width / 2 <= mouse[0] <= width / 2 + 140 and height / 2 <= mouse[1] <= height / 2 + 40:
-                pygame.draw.circle(screen, pygame.Color('yellow'), (randrange(720), randrange(720)), randrange(500), 1)
-                pygame.display.update()
+    def Coffee_console_open(self):
+        self.Coffee_information_console = sqlite3.connect('Coffee.db')
+        self.Coffee_information_cur = self.Coffee_information_console.cursor()
 
-    mouse = pygame.mouse.get_pos()
+    def Coffee_console_close(self):
+        self.Coffee_information_console.commit()
+        self.Coffee_information_cur.close()
 
-    if width / 2 <= mouse[0] <= width / 2 + 140 and height / 2 <= mouse[1] <= height / 2 + 40:
-        pygame.draw.rect(screen, (170, 170, 170), [width / 2 - 70, height / 2 - 20, 140, 40])
-    else:
-        pygame.draw.rect(screen, (100, 100, 100), [width / 2 - 70, height / 2 - 20, 140, 40])
+    def loading_table(self):
+        self.Coffee_console_open()
+        self.coffee_table.setColumnCount(6)
+        self.coffee_table.setHorizontalHeaderLabels(
+            ["Название", "Степень обжарки", "Тип кофе", "Описание вкуса", "Цена", "Объем упаковки"])
+        self.coffee_table.setRowCount(len(self.Coffee_information_cur.execute('SELECT * FROM Coffee').fetchall()))
+        for i, row in enumerate(
+                [list(i) for i in self.Coffee_information_cur.execute('SELECT * FROM Coffee').fetchall()]):
+            for j, elem in enumerate(row):
+                if j == 2:
+                    elem = list(self.Coffee_information_cur.execute(
+                        '''SELECT roasting FROM Roasting WHERE id like {}'''.format(elem)).fetchall())[0][0]
+                elif j == 3:
+                    elem = list(self.Coffee_information_cur.execute(
+                        '''SELECT coffee_type FROM Coffee_types WHERE id like {}'''.format(elem)).fetchall())[0][0]
+                if j != 0:
+                    self.coffee_table.setItem(i, j - 1, QTableWidgetItem(str(elem)))
+        self.coffee_table.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        self.coffee_table.resizeColumnsToContents()
+        self.Coffee_console_close()
 
-    pygame.display.update()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    ex = CoffeeWindow()
+    ex.show()
+    sys.exit(app.exec())
